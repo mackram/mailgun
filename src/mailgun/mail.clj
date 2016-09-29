@@ -38,21 +38,27 @@
 
 (defn gen-multipart
   "Generate the multipart request param incase the request has an attachment"
-  [{:keys [attachment] :as params}]
-  (let [key-list (remove #{:attachment} (keys params))
+  [{:keys [attachment inline] :as params}]
+  (let [key-list (remove #{:attachment :inline} (keys params))
         ->multipart-param (fn [k v] {:name k :content v})
-        attachments (->> attachment
-                         util/ensure-sequential
-                         (map #(->multipart-param "attachment" %)))
+        attachments (if attachment
+                      (->> attachment
+                           util/ensure-sequential
+                           (map #(->multipart-param "attachment" %))))
+        inlines (if inline
+                  (->> inline
+                       util/ensure-sequential
+                       (map #(->multipart-param "inline" %))))
         remaining-fields (map #(->multipart-param (name %) (% params)) key-list)]
-    (concat remaining-fields attachments)))
+    (concat remaining-fields attachments inlines)))
 
 (defn gen-body
   "Build the request body that has to be sent to mailgun, it could be a map of simple form-params
   or could be a multipart request body. If the request has one or more attachments then the
   it would be a multipart else it would be a form-param"
-  [{:keys [attachment] :as params}]
-  (if (nil? attachment)
+  [{:keys [attachment inline] :as params}]
+  (if (and (nil? attachment)
+           (nil? inline))
     {:form-params params}
     {:multipart (gen-multipart params)}))
 
